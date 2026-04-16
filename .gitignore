@@ -1,0 +1,25 @@
+node_modules/
+dist/
+.DS_Store
+*.local
+.env
+.env.local
+.vercel
+
+# Build outputs
+*.tsbuildinfo
+
+# Logs
+*.log
+
+# AI/IDE tool configs
+.agents/
+.claude/
+.crush/
+.factory/
+.pi/
+.vibe/
+.windsurf/
+
+# Internal docs
+handoff.md
