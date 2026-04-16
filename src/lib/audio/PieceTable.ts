@@ -239,8 +239,10 @@ export function createPieceTableFromWords(
   const sortedBlocks = deletionBlocks.sort((a, b) => b.start - a.start);
 
   for (const block of sortedBlocks) {
-    const deleteStart = block.start + padding;
-    const deleteEnd = block.end - padding;
+    const startPadding = block.start === 0 ? 0 : padding;
+    const endPadding = block.end >= originalBuffer.duration ? 0 : padding;
+    const deleteStart = block.start + startPadding;
+    const deleteEnd = block.end - endPadding;
     const lengthToDelete = deleteEnd - deleteStart;
 
     if (lengthToDelete > 0) {

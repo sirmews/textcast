@@ -100,4 +100,43 @@ describe("createPieceTableFromWords", () => {
     expect(seq).toHaveLength(1);
     expect(seq[0].length).toBe(10);
   });
+
+  it("should not leave padding fragment when deleting the first word", () => {
+    const words = [
+      { word: "hello", start: 0, end: 1, deleted: true },
+      { word: "world", start: 1, end: 2 },
+    ];
+
+    const table = createPieceTableFromWords(originalBuffer, words, 0.1);
+    const seq = table.getSequence();
+
+    expect(seq).toHaveLength(1);
+    // Should start exactly at the end of deleted word minus padding (1 - 0.1 = 0.9)
+    expect(seq[0].sourceOffset).toBeCloseTo(0.9);
+  });
+
+  it("should not leave padding fragment when deleting the last word", () => {
+    const buffer = createMockBuffer(5);
+    const words = [
+      { word: "hello", start: 0, end: 1 },
+      { word: "world", start: 4, end: 5, deleted: true },
+    ];
+
+    const table = createPieceTableFromWords(buffer, words, 0.1);
+    const seq = table.getSequence();
+
+    expect(seq).toHaveLength(1);
+    // Should end exactly at the start of deleted word plus padding (4 + 0.1 = 4.1)
+    expect(seq[0].length).toBeCloseTo(4.1);
+  });
+
+  it("should delete entire audio when only word spans full duration", () => {
+    const buffer = createMockBuffer(5);
+    const words = [{ word: "hello", start: 0, end: 5, deleted: true }];
+
+    const table = createPieceTableFromWords(buffer, words, 0.1);
+    const seq = table.getSequence();
+
+    expect(seq).toHaveLength(0);
+  });
 });
