@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Orb } from "@/components/ui/orb";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
-import { audioBufferToWav, preprocessAudio } from "@/lib/audio";
+import { audioBufferToWav } from "@/lib/audio";
 import { renderPiecesToBuffer } from "@/lib/audio/offlineRender";
 import { cn } from "@/lib/utils";
 import type { Word } from "@/types";
@@ -23,15 +23,11 @@ export function TranscriptEditor({
   projectId,
 }: TranscriptEditorProps) {
   const [wordList, setWordList] = useState<Word[]>(initialWords);
-  const [isCleaning, setIsCleaning] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [processedBuffer, setProcessedBuffer] = useState<AudioBuffer | null>(
-    null,
-  );
 
   const { isPlaying, currentTime, duration, pieces, toggle, seek, getVolume } =
     useAudioPlayer({
-      audioBuffer: processedBuffer || audioBuffer,
+      audioBuffer,
       words: wordList,
     });
 
@@ -134,34 +130,16 @@ export function TranscriptEditor({
     onTranscriptChange(newText, newWordList);
   };
 
-  async function handleCleanAudio() {
-    if (!audioBuffer) return;
-    setIsCleaning(true);
-    try {
-      const cleaned = await preprocessAudio(audioBuffer, {
-        highPassEnabled: true,
-        normalizeEnabled: true,
-        silenceTrimEnabled: true,
-      });
-      setProcessedBuffer(cleaned);
-    } catch (err) {
-      console.error("Audio processing failed:", err);
-    } finally {
-      setIsCleaning(false);
-    }
-  }
-
   async function handleExport() {
-    const activeBuffer = processedBuffer || audioBuffer;
-    if (!activeBuffer || pieces.length === 0) return;
+    if (!audioBuffer || pieces.length === 0) return;
 
     setIsExporting(true);
     try {
       // Bake the Edit Decision List down into a final audio buffer
       const finalBuffer = await renderPiecesToBuffer(
         pieces,
-        activeBuffer.numberOfChannels,
-        activeBuffer.sampleRate,
+        audioBuffer.numberOfChannels,
+        audioBuffer.sampleRate,
       );
 
       // Convert to WAV for download
@@ -224,12 +202,12 @@ export function TranscriptEditor({
           <div className="flex gap-2">
             <Button
               variant="outline"
-              onClick={handleCleanAudio}
-              disabled={isCleaning || processedBuffer !== null}
-              className="flex items-center gap-2"
+              disabled
+              className="flex items-center gap-2 opacity-50 cursor-not-allowed"
+              title="Coming soon"
             >
               <Wand2 className="w-4 h-4" />
-              {isCleaning ? "Cleaning..." : "Studio Sound"}
+              Studio Sound
             </Button>
             <Button
               onClick={handleExport}
