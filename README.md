@@ -94,6 +94,8 @@ src/
 - [VS Code Piece Table](https://code.visualstudio.com/blogs/2018/03/23/text-buffer-reimplementation) - Non-destructive editing data structure
 - [Silero VAD](https://github.com/snakers4/silero-vad) - Voice Activity Detection
 - [Transformers.js](https://huggingface.co/docs/transformers.js) - Running ML models in the browser
+- [OPFS](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system) - Origin Private File System for high-performance storage
+- [AudioWorklet](https://developer.mozilla.org/en-US/docs/Web/API/AudioWorklet) - Low-latency audio processing in a separate thread
 
 ## License
 
