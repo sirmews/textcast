@@ -1,5 +1,5 @@
 import { FileAudio, HardDrive, Mic, Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { storage } from "@/lib/storage";
 import { ModeToggle } from "./components/mode-toggle";
@@ -20,14 +20,14 @@ function App() {
   const [view, setView] = useState<"list" | "editor">("list");
   const [isClearing, setIsClearing] = useState(false);
 
+  const loadProjects = useCallback(async () => {
+    const projectList = await getProjects();
+    setProjects(projectList);
+  }, []);
+
   useEffect(() => {
     loadProjects();
   }, [loadProjects]);
-
-  async function loadProjects() {
-    const projectList = await getProjects();
-    setProjects(projectList);
-  }
 
   async function handleNewProject() {
     const name = `Project ${projects.length + 1}`;
@@ -139,6 +139,33 @@ function App() {
       <main className="max-w-4xl mx-auto px-6 py-8">
         {view === "list" ? (
           <div>
+            <div className="mb-6 p-4 bg-muted/50 border border-border rounded-lg">
+              <p className="text-sm text-muted-foreground mb-3">
+                <strong className="text-foreground">TextCast</strong>{" "}
+                transcribes audio entirely in your browser using AI. Your audio
+                never leaves your device — everything is processed locally.{" "}
+                <a
+                  href="https://perfectlycromulent.dev"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  Learn more
+                </a>
+              </p>
+              <div className="text-xs text-muted-foreground">
+                <p className="font-medium text-foreground/70 mb-1">
+                  Current limitations:
+                </p>
+                <ul className="list-disc list-inside space-y-0.5">
+                  <li>English language only</li>
+                  <li>Requires ~350MB initial model download</li>
+                  <li>
+                    Needs a modern browser (Chrome/Edge 86+, Firefox 111+)
+                  </li>
+                </ul>
+              </div>
+            </div>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-medium">Your Projects</h2>
               <Button
