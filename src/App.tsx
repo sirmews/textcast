@@ -1,5 +1,5 @@
-import { FileAudio, HardDrive, Mic, Plus } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { FileAudio, HardDrive, Mic, Plus, Upload } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { storage } from "@/lib/storage";
 import { ModeToggle } from "./components/mode-toggle";
@@ -14,11 +14,22 @@ import {
 } from "./lib/db";
 import type { Project } from "./types";
 
+function isAudioFile(file: File) {
+  return (
+    file.type.startsWith("audio/") ||
+    /\.(mp3|wav|ogg|flac|m4a|webm|aac|opus|wma)$/i.test(file.name)
+  );
+}
+
 function App() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [view, setView] = useState<"list" | "editor">("list");
   const [isClearing, setIsClearing] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadMessage, setUploadMessage] = useState("");
+  const dragCounterRef = useRef(0);
 
   const loadProjects = useCallback(async () => {
     const projectList = await getProjects();
@@ -47,14 +58,13 @@ function App() {
 
   async function handleSaveProject(project: Project) {
     await saveProject(project);
-    setCurrentProject(project); // Update local state so Recorder receives new props
+    setCurrentProject(project);
     loadProjects();
   }
 
   async function handleDeleteProject(id: string) {
     const projectToDelete = projects.find((p) => p.id === id);
 
-    // Clean up OPFS storage
     if (projectToDelete?.audioFile) {
       const filename1 = projectToDelete.audioFile.opfsFilename;
       const filename2 = `project-${id}-raw.pcm`;
@@ -99,6 +109,92 @@ function App() {
     }
   }
 
+  const handleFileUpload = useCallback(
+    async (file: File) => {
+      const name = file.name.replace(/\.[^.]+$/, "");
+      const project = await createProject(name);
+
+      const ext = file.name.split(".").pop() || "audio";
+      const opfsFilename = `project-${project.id}.${ext}`;
+
+      setUploadProgress(0);
+      setUploadMessage(`Storing "${file.name}"...`);
+
+      try {
+        const writable = await storage.getWritableStream(opfsFilename);
+        const reader = file.stream().getReader();
+        let loaded = 0;
+        const total = file.size;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          await writable.write(value);
+          loaded += value.byteLength;
+          setUploadProgress(Math.round((loaded / total) * 100));
+        }
+        await writable.close();
+
+        const projectWithAudio: Project = {
+          ...project,
+          audioFile: {
+            name: file.name,
+            duration: 0,
+            opfsFilename,
+          },
+          updatedAt: Date.now(),
+        };
+
+        await saveProject(projectWithAudio);
+        setCurrentProject(projectWithAudio);
+        await loadProjects();
+        setView("editor");
+      } catch (err) {
+        console.error("Failed to store audio file:", err);
+        await deleteProject(project.id);
+        await loadProjects();
+      } finally {
+        setUploadProgress(null);
+        setUploadMessage("");
+      }
+    },
+    [loadProjects],
+  );
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current++;
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+  }, []);
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      dragCounterRef.current = 0;
+      setIsDragging(false);
+
+      const file = e.dataTransfer.files[0];
+      if (!file || !isAudioFile(file)) return;
+
+      await handleFileUpload(file);
+    },
+    [handleFileUpload],
+  );
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="bg-card border-b border-border px-6 py-4">
@@ -138,7 +234,44 @@ function App() {
 
       <main className="max-w-4xl mx-auto px-6 py-8">
         {view === "list" ? (
-          <div>
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: drop zone requires drag event handlers */}
+          <div
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            className="relative"
+          >
+            {isDragging && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-primary bg-primary/5 pointer-events-none">
+                <Upload className="w-12 h-12 text-primary mb-3" />
+                <p className="text-lg font-medium text-primary">
+                  Drop audio file to create project
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  MP3, WAV, OGG, FLAC, M4A, WebM supported
+                </p>
+              </div>
+            )}
+
+            {uploadProgress !== null && (
+              <div className="mb-6 p-6 bg-card border border-border rounded-lg text-center">
+                <Upload className="w-8 h-8 text-primary mx-auto mb-3" />
+                <p className="text-sm font-medium text-foreground mb-3">
+                  {uploadMessage}
+                </p>
+                <div className="w-64 h-2 bg-muted rounded-full mx-auto overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-100"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  {uploadProgress}%
+                </p>
+              </div>
+            )}
+
             <div className="mb-6 p-4 bg-muted/50 border border-border rounded-lg">
               <p className="text-sm text-muted-foreground mb-3">
                 <strong className="text-foreground">TextCast</strong>{" "}
@@ -178,19 +311,28 @@ function App() {
             </div>
 
             {projects.length === 0 ? (
-              <div className="text-center py-12 bg-card rounded-lg border border-border">
+              <div className="text-center py-12 bg-card rounded-lg border border-border border-dashed">
                 <FileAudio className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground mb-4">No projects yet</p>
+                <p className="text-muted-foreground mb-2">No projects yet</p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Record audio or drop a file anywhere on this page
+                </p>
                 <Button variant="link" onClick={handleNewProject}>
                   Create your first project
                 </Button>
               </div>
             ) : (
-              <ProjectList
-                projects={projects}
-                onSelect={handleSelectProject}
-                onDelete={handleDeleteProject}
-              />
+              <>
+                <ProjectList
+                  projects={projects}
+                  onSelect={handleSelectProject}
+                  onDelete={handleDeleteProject}
+                />
+                <p className="text-xs text-muted-foreground text-center mt-4">
+                  Drop an audio file anywhere on this page to create a new
+                  project
+                </p>
+              </>
             )}
           </div>
         ) : currentProject ? (

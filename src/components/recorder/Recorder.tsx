@@ -445,7 +445,11 @@ export function Recorder({ project, onSave }: RecorderProps) {
                 />
               </div>
               <p className="text-muted-foreground mb-4">
-                {isPreviewPlaying ? "Playing audio..." : "Recording complete"}
+                {isPreviewPlaying
+                  ? "Playing audio..."
+                  : project.audioFile?.opfsFilename?.endsWith(".pcm")
+                    ? "Recording complete"
+                    : "Audio ready"}
               </p>
 
               <div className="flex gap-3 justify-center">
