@@ -234,7 +234,7 @@ function App() {
 
       <main className="max-w-4xl mx-auto px-6 py-8">
         {view === "list" ? (
-          {/* biome-ignore lint/a11y/noStaticElementInteractions: drop zone requires drag event handlers */}
+          // biome-ignore lint/a11y/noStaticElementInteractions: drop zone requires drag event handlers
           <div
             onDragEnter={handleDragEnter}
             onDragLeave={handleDragLeave}
