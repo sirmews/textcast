@@ -20,6 +20,7 @@ dist/
 .pi/
 .vibe/
 .windsurf/
+.zenflow/
 
 # Internal docs
 handoff.md
