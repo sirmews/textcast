@@ -1,4 +1,4 @@
-import { FileAudio, HardDrive, Mic, Plus, Upload } from "lucide-react";
+import { FileAudio, Github, HardDrive, Mic, Plus, Upload } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { storage } from "@/lib/storage";
@@ -227,6 +227,15 @@ function App() {
               <HardDrive className="w-4 h-4" />
               {isClearing ? "Clearing..." : "Clear AI Models"}
             </Button>
+            <a
+              href="https://github.com/sirmews/textcast"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium h-9 w-9 text-muted-foreground hover:text-foreground transition-colors"
+              title="View on GitHub"
+            >
+              <Github className="w-4 h-4" />
+            </a>
             <ModeToggle />
           </div>
         </div>

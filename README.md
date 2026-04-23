@@ -1,5 +1,7 @@
 # TextCast
 
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/sirmews/textcast?utm_source=oss&utm_medium=github&utm_campaign=sirmews%2Ftextcast&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+
 Edit audio by editing text. A local-first, browser-based audio editor for podcasters.
 
 ## Features
