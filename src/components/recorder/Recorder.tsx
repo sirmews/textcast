@@ -356,6 +356,10 @@ export function Recorder({ project, onSave }: RecorderProps) {
     }
   }
 
+  const effectiveFilename =
+    project.audioFile?.opfsFilename ?? `project-${project.id}-raw.pcm`;
+  const isRecordedPcm = effectiveFilename.endsWith(".pcm");
+
   return (
     <div className="space-y-6">
       {state !== "done" && (
@@ -447,7 +451,7 @@ export function Recorder({ project, onSave }: RecorderProps) {
               <p className="text-muted-foreground mb-4">
                 {isPreviewPlaying
                   ? "Playing audio..."
-                  : project.audioFile?.opfsFilename?.endsWith(".pcm")
+                  : isRecordedPcm
                     ? "Recording complete"
                     : "Audio ready"}
               </p>
