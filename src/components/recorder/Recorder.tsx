@@ -146,7 +146,7 @@ export function Recorder({ project, onSave }: RecorderProps) {
               );
               buffer.getChannelData(0).set(floatData);
             } else {
-              // Handle legacy WebM
+              // Handle encoded formats (MP3, WAV, OGG, FLAC, WebM, etc.)
               buffer = await audioContext.decodeAudioData(arrayBuffer);
             }
 
@@ -286,7 +286,7 @@ export function Recorder({ project, onSave }: RecorderProps) {
         ...project,
         audioFile: {
           ...project.audioFile,
-          name: "recording.wav",
+          name: project.audioFile?.name || "recording.wav",
           duration: audioBuffer.duration,
         },
         transcript: {
