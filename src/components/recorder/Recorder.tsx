@@ -146,7 +146,7 @@ export function Recorder({ project, onSave }: RecorderProps) {
               );
               buffer.getChannelData(0).set(floatData);
             } else {
-              // Handle legacy WebM
+              // Handle encoded formats (MP3, WAV, OGG, FLAC, WebM, etc.)
               buffer = await audioContext.decodeAudioData(arrayBuffer);
             }
 
@@ -286,7 +286,7 @@ export function Recorder({ project, onSave }: RecorderProps) {
         ...project,
         audioFile: {
           ...project.audioFile,
-          name: "recording.wav",
+          name: project.audioFile?.name || "recording.wav",
           duration: audioBuffer.duration,
         },
         transcript: {
@@ -355,6 +355,10 @@ export function Recorder({ project, onSave }: RecorderProps) {
       onSave(updatedProject);
     }
   }
+
+  const effectiveFilename =
+    project.audioFile?.opfsFilename ?? `project-${project.id}-raw.pcm`;
+  const isRecordedPcm = effectiveFilename.endsWith(".pcm");
 
   return (
     <div className="space-y-6">
@@ -445,7 +449,11 @@ export function Recorder({ project, onSave }: RecorderProps) {
                 />
               </div>
               <p className="text-muted-foreground mb-4">
-                {isPreviewPlaying ? "Playing audio..." : "Recording complete"}
+                {isPreviewPlaying
+                  ? "Playing audio..."
+                  : isRecordedPcm
+                    ? "Recording complete"
+                    : "Audio ready"}
               </p>
 
               <div className="flex gap-3 justify-center">
