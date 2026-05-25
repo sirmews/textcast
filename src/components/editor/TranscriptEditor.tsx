@@ -268,16 +268,13 @@ export function TranscriptEditor({
                     className="p-5 bg-card/40 border border-border/50 rounded-xl space-y-3 hover:border-border/80 transition-colors duration-200"
                   >
                     {/* Header for the segment */}
-                    <div className="flex items-center justify-between text-xs text-muted-foreground font-mono pb-2 border-b border-border/40">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-primary/60" />
-                        <span className="font-semibold text-foreground/80">
-                          {segment.speaker || `Speaker ${segIdx + 1}`}
+                    <div className="flex items-center justify-between text-xs text-muted-foreground font-mono pb-1.5 border-b border-border/40">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />
+                        <span>
+                          {formatTime(segment.start)} - {formatTime(segment.end)}
                         </span>
                       </div>
-                      <span>
-                        {formatTime(segment.start)} - {formatTime(segment.end)}
-                      </span>
                     </div>
 
                     {/* Words wrapper */}
