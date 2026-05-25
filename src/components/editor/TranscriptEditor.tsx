@@ -2,6 +2,7 @@ import { Download, Loader2, Pause, Play, Wand2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Orb } from "@/components/ui/orb";
+import { AudioWaveform } from "@/components/ui/AudioWaveform";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import { audioBufferToWav } from "@/lib/audio";
 import { renderPiecesToBuffer } from "@/lib/audio/offlineRender";
@@ -231,21 +232,15 @@ export function TranscriptEditor({
           </div>
         </div>
 
-        {/* Progress Bar */}
-        <div
-          className="relative w-full h-2 bg-muted rounded-full mb-8 cursor-pointer overflow-hidden"
-          onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const pct = x / rect.width;
-            seek(pct * duration);
-          }}
-        >
-          <div
-            className="absolute top-0 left-0 h-full bg-primary transition-all duration-100 ease-linear"
-            style={{ width: `${(currentTime / duration) * 100}%` }}
-          />
-        </div>
+        {/* Interactive Waveform representing Piece Table EDL */}
+        <AudioWaveform
+          audioBuffer={audioBuffer}
+          currentTime={currentTime}
+          pieces={pieces}
+          words={wordList}
+          onSeek={seek}
+          className="mb-8"
+        />
 
         {/* Interactive Transcript */}
         <div className="min-h-[400px] p-6 bg-background border border-border rounded-lg shadow-inner">
