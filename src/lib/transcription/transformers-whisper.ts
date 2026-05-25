@@ -198,8 +198,21 @@ export async function transcribeAudio(
     ];
   }
 
-  // Split long segments into smaller sub-segments of maximum 30 seconds
-  const MAX_SEGMENT_DURATION = 30; // seconds
+  // --- SUB-SEGMENTATION OF LONG SPEECH SESSIONS ---
+  // RATIONALE: Whisper and MMS forced-aligner models are architecturally optimized for
+  // audio sequences under 30 seconds. In browser-based ONNX Runtime (WASM/WebGPU),
+  // executing inference on very long Float32Arrays (e.g., several minutes) causes
+  // tensor dimensions (specifically the sequence length dimension in the output logits)
+  // to grow extremely large. This results in out-of-memory or dimensional out-of-bound
+  // failures like "failed to call OrtRun(). ERROR_CODE: 1 ... Tensor shape is too large".
+  //
+  // To avoid this, we split any speech segment longer than 29 seconds into smaller
+  // sub-segments. We use 29.0s instead of 30.0s to provide a 1-second safety padding
+  // against rounding discrepancies, float inaccuracies, or model padding bounds.
+  // Using Float32Array.subarray is highly efficient as it references slices of the
+  // existing memory view without copy overhead. Word timestamps are automatically
+  // reconstructed correctly since sub-segment offsets are relative to the original timeline.
+  const MAX_SEGMENT_DURATION = 29; // seconds
   const processedSegments: typeof speechSegments = [];
   const sampleRate = 16000;
 
@@ -220,11 +233,13 @@ export async function transcribeAudio(
           Math.round((offset + chunkDuration) * sampleRate),
         );
         const chunkAudio = segment.audio.subarray(startSample, endSample);
-        processedSegments.push({
-          start: segment.start + offset,
-          end: segment.start + offset + chunkDuration,
-          audio: chunkAudio,
-        });
+        if (chunkAudio.length > 0) {
+          processedSegments.push({
+            start: segment.start + offset,
+            end: segment.start + offset + chunkDuration,
+            audio: chunkAudio,
+          });
+        }
         offset += chunkDuration;
       }
     }

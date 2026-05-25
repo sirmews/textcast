@@ -117,31 +117,31 @@ describe("transformers-whisper transcription split testing", () => {
     const transcriberMock = await pipeline("automatic-speech-recognition");
     
     // Total duration is 95 seconds.
-    // 95 seconds split into max 30s chunks should yield 4 chunks:
-    // Chunk 1: 30s
-    // Chunk 2: 30s
-    // Chunk 3: 30s
-    // Chunk 4: 5s
+    // 95 seconds split into max 29s chunks should yield 4 chunks:
+    // Chunk 1: 29s
+    // Chunk 2: 29s
+    // Chunk 3: 29s
+    // Chunk 4: 8s
     expect(transcriberMock).toHaveBeenCalledTimes(4);
 
-    // Verify first chunk starts at 10.0s and ends at 40.0s (30s duration)
-    // Verify second chunk starts at 40.0s and ends at 70.0s (30s duration)
-    // Verify third chunk starts at 70.0s and ends at 100.0s (30s duration)
-    // Verify fourth chunk starts at 100.0s and ends at 105.0s (5s duration)
+    // Verify first chunk starts at 10.0s and ends at 39.0s (29s duration)
+    // Verify second chunk starts at 39.0s and ends at 68.0s (29s duration)
+    // Verify third chunk starts at 68.0s and ends at 97.0s (29s duration)
+    // Verify fourth chunk starts at 97.0s and ends at 105.0s (8s duration)
     
     // Let's assert the length of audio subarrays passed to the transcriber
     const calls = vi.mocked(transcriberMock).mock.calls;
     
-    // First chunk sample length should be 30s * 16000 = 480000 samples
-    expect((calls[0][0] as Float32Array).length).toBe(480000);
+    // First chunk sample length should be 29s * 16000 = 464000 samples
+    expect((calls[0][0] as Float32Array).length).toBe(464000);
     expect(calls[0][1]).toEqual({
       return_timestamps: false,
       chunk_length_s: 30,
       stride_length_s: 5,
     });
 
-    // Fourth chunk sample length should be 5s * 16000 = 80000 samples
-    expect((calls[3][0] as Float32Array).length).toBe(80000);
+    // Fourth chunk sample length should be 8s * 16000 = 128000 samples
+    expect((calls[3][0] as Float32Array).length).toBe(128000);
     expect(calls[3][1]).toEqual({
       return_timestamps: false,
       chunk_length_s: 30,
