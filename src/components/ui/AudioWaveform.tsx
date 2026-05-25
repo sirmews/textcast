@@ -113,7 +113,7 @@ export function AudioWaveform({
       );
 
       // Center the bar vertically
-      const barHeight = Math.max(8, val * SVG_HEIGHT * 0.85); // minimum 8 units height for silence
+      const barHeight = Math.max(8, val * SVG_HEIGHT * 0.82); // minimum 8 units height for silence
       const y = (SVG_HEIGHT - barHeight) / 2;
       const x = i * BAR_SPACING;
 
@@ -191,145 +191,167 @@ export function AudioWaveform({
         onClick={handleContainerClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className="relative w-full bg-background/40 border border-border/80 rounded-xl cursor-pointer overflow-hidden hover:border-border transition-colors duration-200 flex flex-col"
+        className="relative w-full h-24 bg-background/40 border border-border/80 rounded-xl cursor-pointer overflow-hidden hover:border-border transition-colors duration-200"
       >
-        {/* Upper Layer: Wavesurfer Dual-Wave Rendering via SVG */}
-        <div className="relative w-full h-20 px-3 flex items-center">
-          <svg
-            className="w-full h-full p-2 overflow-visible"
-            viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
-            preserveAspectRatio="none"
-          >
-            {/* Progress Clipping Mask (Clipped to playhead location) */}
-            <defs>
-              <clipPath id="waveform-progress-clip">
-                <rect
-                  x="0"
-                  y="-10"
-                  width={absolutePlayheadPercent * (SVG_WIDTH / 100)}
-                  height={SVG_HEIGHT + 20}
-                />
-              </clipPath>
-            </defs>
+        {/* Single Layer: Wavesurfer Dual-Wave Rendering & EDL Overlays via SVG */}
+        <svg
+          className="w-full h-full p-3 overflow-visible"
+          viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
+          preserveAspectRatio="none"
+        >
+          {/* Progress Clipping Mask (Clipped to playhead location) */}
+          <defs>
+            <clipPath id="waveform-progress-clip">
+              <rect
+                x="0"
+                y="-10"
+                width={absolutePlayheadPercent * (SVG_WIDTH / 100)}
+                height={SVG_HEIGHT + 20}
+              />
+            </clipPath>
+          </defs>
 
-            {/* Group 1: Background Waveform (Unplayed Portion - Muted Violet/Gray) */}
-            <g className="text-primary/20 dark:text-primary/15 transition-all duration-75">
-              {peakStates.map((state, index) => {
-                if (state.isDeleted) {
-                  return (
-                    <rect
-                      key={`bg-del-${index}`}
-                      x={state.x}
-                      y={state.y}
-                      width={state.width}
-                      height={state.height}
-                      rx="1.3"
-                      ry="1.3"
-                      className="fill-muted-foreground/10 dark:fill-muted-foreground/5"
-                    />
-                  );
-                }
-                return (
+          {/* BACKGROUND LAYER: Render soft-green EDL piece blocks behind the waveform peaks */}
+          <g>
+            {pieces.map((piece, i) => {
+              const left = (piece.sourceOffset / totalDuration) * SVG_WIDTH;
+              const width = (piece.length / totalDuration) * SVG_WIDTH;
+              return (
+                <g key={`edl-block-${i}`}>
+                  {/* Soft green block background */}
                   <rect
-                    key={`bg-active-${index}`}
-                    x={state.x}
-                    y={state.y}
-                    width={state.width}
-                    height={state.height}
-                    rx="1.3"
-                    ry="1.3"
-                    fill="currentColor"
+                    x={left}
+                    y={1}
+                    width={width}
+                    height={SVG_HEIGHT - 2}
+                    rx="3"
+                    className="fill-emerald-500/[0.04] dark:fill-emerald-500/[0.06]"
                   />
-                );
-              })}
-            </g>
-
-            {/* Group 2: Foreground Waveform (Played Portion - Clipped to Playhead with vibrant Primary fill) */}
-            <g
-              className="text-primary transition-all duration-75"
-              clipPath="url(#waveform-progress-clip)"
-            >
-              {peakStates.map((state, index) => {
-                // Deleted parts don't light up as played to keep focus on edited state
-                if (state.isDeleted) return null;
-
-                return (
-                  <rect
-                    key={`fg-active-${index}`}
-                    x={state.x}
-                    y={state.y}
-                    width={state.width}
-                    height={state.height}
-                    rx="1.3"
-                    ry="1.3"
-                    fill="currentColor"
-                  />
-                );
-              })}
-            </g>
-
-            {/* Group 3: Strike-through decorations for Deleted Blocks */}
-            <g className="text-muted-foreground/30 dark:text-muted-foreground/20">
-              {peakStates.map((state, index) => {
-                if (!state.isDeleted) return null;
-                
-                // Draw a small cross line in the middle of deleted buckets
-                return (
+                  {/* Subtle boundary tick lines */}
                   <line
-                    key={`strike-${index}`}
-                    x1={state.x - 1}
-                    y1={SVG_HEIGHT / 2}
-                    x2={state.x + state.width + 1}
-                    y2={SVG_HEIGHT / 2}
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeDasharray="1 1"
+                    x1={left}
+                    y1={0}
+                    x2={left}
+                    y2={SVG_HEIGHT}
+                    className="stroke-emerald-500/25 dark:stroke-emerald-400/20"
+                    strokeWidth="1"
+                    strokeDasharray="2 2"
+                  />
+                  <line
+                    x1={left + width}
+                    y1={0}
+                    x2={left + width}
+                    y2={SVG_HEIGHT}
+                    className="stroke-emerald-500/25 dark:stroke-emerald-400/20"
+                    strokeWidth="1"
+                    strokeDasharray="2 2"
+                  />
+                  {/* Subtle Piece label P1, P2 ... in the top left corner of the block */}
+                  {width > 30 && (
+                    <text
+                      x={left + 6}
+                      y={14}
+                      className="fill-emerald-600/40 dark:fill-emerald-400/35 text-[9px] font-mono font-bold tracking-wider"
+                    >
+                      P{i + 1}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+          </g>
+
+          {/* WAVEFORM LAYER 1: Background Waveform (Unplayed Portion - Muted Violet/Gray) */}
+          <g className="text-primary/20 dark:text-primary/15 transition-all duration-75">
+            {peakStates.map((state, index) => {
+              if (state.isDeleted) {
+                return (
+                  <rect
+                    key={`bg-del-${index}`}
+                    x={state.x}
+                    y={state.y}
+                    width={state.width}
+                    height={state.height}
+                    rx="1.3"
+                    ry="1.3"
+                    className="fill-muted-foreground/10 dark:fill-muted-foreground/5"
                   />
                 );
-              })}
-            </g>
-          </svg>
+              }
+              return (
+                <rect
+                  key={`bg-active-${index}`}
+                  x={state.x}
+                  y={state.y}
+                  width={state.width}
+                  height={state.height}
+                  rx="1.3"
+                  ry="1.3"
+                  fill="currentColor"
+                />
+              );
+            })}
+          </g>
 
-          {/* Wavesurfer Hover Timeline Indicator Line */}
-          {hoverPercent !== null && (
-            <div
-              className="absolute top-0 bottom-0 w-[1.5px] bg-muted-foreground/40 pointer-events-none z-30"
-              style={{ left: `${hoverPercent * 100}%` }}
-            />
-          )}
+          {/* WAVEFORM LAYER 2: Foreground Waveform (Played Portion - Clipped to Playhead with vibrant Primary fill) */}
+          <g
+            className="text-primary transition-all duration-75"
+            clipPath="url(#waveform-progress-clip)"
+          >
+            {peakStates.map((state, index) => {
+              // Deleted parts don't light up as played to keep focus on edited state
+              if (state.isDeleted) return null;
 
-          {/* Wavesurfer Sliding Playhead Indicator Line */}
+              return (
+                <rect
+                  key={`fg-active-${index}`}
+                  x={state.x}
+                  y={state.y}
+                  width={state.width}
+                  height={state.height}
+                  rx="1.3"
+                  ry="1.3"
+                  fill="currentColor"
+                />
+              );
+            })}
+          </g>
+
+          {/* WAVEFORM LAYER 3: Strike-through decorations for Deleted Blocks */}
+          <g className="text-muted-foreground/30 dark:text-muted-foreground/20">
+            {peakStates.map((state, index) => {
+              if (!state.isDeleted) return null;
+              
+              // Draw a small cross line in the middle of deleted buckets
+              return (
+                <line
+                  key={`strike-${index}`}
+                  x1={state.x - 1}
+                  y1={SVG_HEIGHT / 2}
+                  x2={state.x + state.width + 1}
+                  y2={SVG_HEIGHT / 2}
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeDasharray="1 1"
+                />
+              );
+            })}
+          </g>
+        </svg>
+
+        {/* Wavesurfer Hover Timeline Indicator Line */}
+        {hoverPercent !== null && (
           <div
-            className="absolute top-0 bottom-0 w-0.5 bg-primary z-40 pointer-events-none transition-all duration-75 ease-linear shadow-[0_0_10px_rgba(var(--primary-color),0.6)]"
-            style={{ left: `${absolutePlayheadPercent}%` }}
+            className="absolute top-0 bottom-0 w-[1.5px] bg-muted-foreground/40 pointer-events-none z-30"
+            style={{ left: `${hoverPercent * 100}%` }}
           />
-        </div>
+        )}
 
-        {/* Lower Layer: Integrated Piece Table (EDL) Timeline Track */}
-        <div className="h-4 w-full bg-destructive/15 border-t border-border/40 relative flex items-center text-left">
-          {pieces.map((piece, i) => {
-            const leftPercent = (piece.sourceOffset / totalDuration) * 100;
-            const widthPercent = (piece.length / totalDuration) * 100;
-
-            return (
-              <div
-                key={i}
-                className="absolute h-full bg-emerald-500/80 dark:bg-emerald-500/70 border-r border-background/40 last:border-none hover:brightness-110 transition-all flex items-center justify-center overflow-hidden"
-                style={{
-                  left: `${leftPercent}%`,
-                  width: `${widthPercent}%`,
-                }}
-                title={`Piece ${i + 1}\nSource Offset: ${piece.sourceOffset.toFixed(2)}s\nLength: ${piece.length.toFixed(2)}s`}
-              >
-                {widthPercent > 2.5 && (
-                  <span className="text-[9px] font-mono font-bold text-emerald-950 dark:text-emerald-950 px-1 truncate">
-                    P{i + 1}
-                  </span>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        {/* Wavesurfer Sliding Playhead Indicator Line */}
+        <div
+          className="absolute top-0 bottom-0 w-0.5 bg-primary z-40 pointer-events-none transition-all duration-75 ease-linear shadow-[0_0_10px_rgba(var(--primary-color),0.6)]"
+          style={{ left: `${absolutePlayheadPercent}%` }}
+        />
       </div>
     </div>
   );
