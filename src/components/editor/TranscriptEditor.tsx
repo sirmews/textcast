@@ -290,8 +290,9 @@ export function TranscriptEditor({
                           currentTime < word.logicalStart + word.wordDuration;
 
                         return (
-                          <span
-                            key={`${index}-${word.word}`}
+                          <button
+                            key={word.start}
+                            type="button"
                             onClick={() =>
                               !word.deleted && handleWordClick(word.logicalStart)
                             }
@@ -299,8 +300,19 @@ export function TranscriptEditor({
                               e.preventDefault();
                               toggleWordDeletion(index);
                             }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                if (!word.deleted) {
+                                  handleWordClick(word.logicalStart);
+                                }
+                              } else if (e.key === "Backspace" || e.key === "Delete") {
+                                e.preventDefault();
+                                toggleWordDeletion(index);
+                              }
+                            }}
                             className={cn(
-                              "px-1 py-0.5 rounded cursor-pointer transition-all duration-150 select-none text-lg",
+                              "px-1 py-0.5 rounded cursor-pointer transition-all duration-150 select-none text-lg border-0 bg-transparent text-left font-normal focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
                               word.deleted
                                 ? "text-muted-foreground/30 line-through scale-95"
                                 : "text-foreground hover:bg-muted/80",
@@ -310,11 +322,11 @@ export function TranscriptEditor({
                             title={
                               word.deleted
                                 ? "Right-click to restore"
-                                : "Click to seek, Right-click to delete"
+                                : "Click/Press Enter/Space to seek, Right-click/Backspace/Delete to delete"
                             }
                           >
                             {word.word}
-                          </span>
+                          </button>
                         );
                       })}
                     </div>
@@ -332,8 +344,9 @@ export function TranscriptEditor({
                   currentTime < word.logicalStart + word.wordDuration;
 
                 return (
-                  <span
-                    key={`${index}-${word.word}`}
+                  <button
+                    key={word.start}
+                    type="button"
                     onClick={() =>
                       !word.deleted && handleWordClick(word.logicalStart)
                     }
@@ -341,8 +354,19 @@ export function TranscriptEditor({
                       e.preventDefault();
                       toggleWordDeletion(index);
                     }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        if (!word.deleted) {
+                          handleWordClick(word.logicalStart);
+                        }
+                      } else if (e.key === "Backspace" || e.key === "Delete") {
+                        e.preventDefault();
+                        toggleWordDeletion(index);
+                      }
+                    }}
                     className={cn(
-                      "px-1 py-0.5 rounded cursor-pointer transition-all duration-200 select-none text-lg",
+                      "px-1 py-0.5 rounded cursor-pointer transition-all duration-200 select-none text-lg border-0 bg-transparent text-left font-normal focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
                       word.deleted
                         ? "text-muted-foreground/30 line-through scale-95"
                         : "text-foreground hover:bg-muted",
@@ -352,11 +376,11 @@ export function TranscriptEditor({
                     title={
                       word.deleted
                         ? "Right-click to restore"
-                        : "Click to seek, Right-click to delete"
+                        : "Click/Press Enter/Space to seek, Right-click/Backspace/Delete to delete"
                     }
                   >
                     {word.word}
-                  </span>
+                  </button>
                 );
               })}
             </div>
