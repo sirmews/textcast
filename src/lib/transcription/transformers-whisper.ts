@@ -5,6 +5,7 @@ import {
   env,
   type ProgressCallback,
   pipeline,
+  AutoModelForAudioFrameClassification,
 } from "@huggingface/transformers";
 import type { Word } from "@/types";
 import { align } from "./aligner";
@@ -52,6 +53,8 @@ let transcriber: Transcriber | null = null;
 let alignerModel: AlignerModel | null = null;
 let alignerProcessor: AlignerProcessor | null = null;
 let alignerTokenizer: AlignerTokenizer | null = null;
+let diarizationModel: any = null;
+let diarizationProcessor: any = null;
 
 export type ModelSize =
   | "Xenova/whisper-tiny.en"
@@ -59,6 +62,7 @@ export type ModelSize =
   | "onnx-community/whisper-large-v3-turbo";
 
 const ALIGNER_MODEL_ID = "onnx-community/mms-300m-1130-forced-aligner-ONNX";
+const DIARIZATION_MODEL_ID = "onnx-community/pyannote-segmentation-3.0";
 
 /**
  * Check if WebGPU is available
@@ -119,7 +123,27 @@ export async function loadModel(
     });
   }
 
-  return { transcriber, alignerModel, alignerProcessor, alignerTokenizer };
+  if (!diarizationModel) {
+    console.log(`[TextCast] Loading Diarization: ${DIARIZATION_MODEL_ID}`);
+    // NOTE: WebGPU is not currently supported for pyannote in ORT Web
+    diarizationModel = await AutoModelForAudioFrameClassification.from_pretrained(DIARIZATION_MODEL_ID, {
+      device: "wasm",
+      dtype: "fp32",
+      progress_callback: onProgress,
+    });
+    diarizationProcessor = await AutoProcessor.from_pretrained(DIARIZATION_MODEL_ID, {
+      progress_callback: onProgress,
+    });
+  }
+
+  return {
+    transcriber,
+    alignerModel,
+    alignerProcessor,
+    alignerTokenizer,
+    diarizationModel,
+    diarizationProcessor,
+  };
 }
 
 /**
@@ -247,7 +271,7 @@ export async function transcribeAudio(
 
   const allWords: Word[] = [];
   let fullText = "";
-  const resultSegments: { id: string; start: number; end: number; text: string }[] = [];
+  const resultSegments: { id: string; start: number; end: number; text: string; speaker?: string }[] = [];
 
   // STEP 2: Process each speech segment
   for (let i = 0; i < processedSegments.length; i++) {
@@ -356,9 +380,117 @@ export async function transcribeAudio(
     }
   }
 
+  // --- STAGE 3: SPEAKER DIARIZATION (PyAnnote) ---
+  let finalSegments = resultSegments;
+  try {
+    if (diarizationModel && diarizationProcessor) {
+      console.log("[TextCast] Running PyAnnote Speaker Diarization on full audio...");
+      if (onProgress) {
+        onProgress({
+          status: "progress",
+          progress: 98,
+          message: "Performing Speaker Diarization...",
+          // biome-ignore lint/suspicious/noExplicitAny: library types
+        } as any);
+      }
+
+      const inputs = await diarizationProcessor(audioData);
+      const { logits } = await diarizationModel(inputs);
+      const speakerSegmentsRaw = diarizationProcessor.post_process_speaker_diarization(logits, audioData.length);
+      const speakerSegments = speakerSegmentsRaw[0] || [];
+
+      console.log(`[TextCast] Diarization finished. Found ${speakerSegments.length} speaker chunks.`);
+
+      if (speakerSegments.length > 0 && allWords.length > 0) {
+        // Map speaker names (e.g. SPEAKER_00 -> Speaker A)
+        const speakerNames: Record<string, string> = {};
+        let speakerCount = 0;
+        const getSpeakerLabel = (id: string): string => {
+          if (!speakerNames[id]) {
+            const label = String.fromCharCode(65 + speakerCount); // 'A', 'B', 'C', ...
+            speakerNames[id] = `Speaker ${label}`;
+            speakerCount++;
+          }
+          return speakerNames[id];
+        };
+
+        // Assign speaker to each word
+        for (const word of allWords) {
+          let bestSpeaker = "SPEAKER_00";
+          let maxOverlap = 0;
+          for (const seg of speakerSegments) {
+            const overlapStart = Math.max(word.start, seg.start);
+            const overlapEnd = Math.min(word.end, seg.end);
+            const overlap = overlapEnd - overlapStart;
+            if (overlap > maxOverlap) {
+              maxOverlap = overlap;
+              bestSpeaker = seg.id;
+            }
+          }
+          // Fallback if no overlap: find closest segment
+          if (maxOverlap === 0 && speakerSegments.length > 0) {
+            let minDistance = Infinity;
+            for (const seg of speakerSegments) {
+              const dist = Math.min(Math.abs(word.start - seg.end), Math.abs(seg.start - word.end));
+              if (dist < minDistance) {
+                minDistance = dist;
+                bestSpeaker = seg.id;
+              }
+            }
+          }
+          word.speaker = getSpeakerLabel(bestSpeaker);
+        }
+
+        // Re-construct contiguous segments based on speaker changes or long pauses
+        const diarizedSegments: typeof resultSegments = [];
+        let currentSegmentWords: Word[] = [allWords[0]];
+        let currentSpeaker = allWords[0].speaker || "Speaker A";
+        let segmentStart = allWords[0].start;
+
+        for (let i = 1; i < allWords.length; i++) {
+          const word = allWords[i];
+          const wordSpeaker = word.speaker || "Speaker A";
+          const prevWord = allWords[i - 1];
+
+          const speakerChanged = wordSpeaker !== currentSpeaker;
+          const isLongPause = word.start - prevWord.end > 2.0;
+
+          if (speakerChanged || isLongPause) {
+            diarizedSegments.push({
+              id: `seg-${diarizedSegments.length}-${Date.now()}`,
+              start: segmentStart,
+              end: prevWord.end,
+              text: currentSegmentWords.map((w) => w.word).join(" "),
+              speaker: currentSpeaker,
+            });
+            currentSegmentWords = [word];
+            currentSpeaker = wordSpeaker;
+            segmentStart = word.start;
+          } else {
+            currentSegmentWords.push(word);
+          }
+        }
+
+        if (currentSegmentWords.length > 0) {
+          diarizedSegments.push({
+            id: `seg-${diarizedSegments.length}-${Date.now()}`,
+            start: segmentStart,
+            end: currentSegmentWords[currentSegmentWords.length - 1].end,
+            text: currentSegmentWords.map((w) => w.word).join(" "),
+            speaker: currentSpeaker,
+          });
+        }
+
+        finalSegments = diarizedSegments;
+      }
+    }
+  } catch (err) {
+    console.error("[TextCast] Diarization failed, falling back to basic VAD segments:", err);
+  }
+
   return {
     text: fullText.trim(),
-    segments: resultSegments,
+    segments: finalSegments,
     words: allWords,
   };
 }

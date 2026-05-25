@@ -54,13 +54,27 @@ vi.mock("@huggingface/transformers", () => {
     text: "Hello this is a test transcription of long audio.",
   });
 
+  const mockProcessorInstance = Object.assign(
+    () => Promise.resolve({}),
+    {
+      post_process_speaker_diarization: vi.fn().mockReturnValue([
+        [
+          { start: 10, end: 105, id: "SPEAKER_00" },
+        ],
+      ]),
+    }
+  );
+
   return {
     pipeline: vi.fn().mockResolvedValue(transcriberMock),
     AutoModelForCTC: {
       from_pretrained: vi.fn().mockResolvedValue({}),
     },
+    AutoModelForAudioFrameClassification: {
+      from_pretrained: vi.fn().mockResolvedValue(() => Promise.resolve({ logits: {} })),
+    },
     AutoProcessor: {
-      from_pretrained: vi.fn().mockResolvedValue(() => Promise.resolve({})),
+      from_pretrained: vi.fn().mockResolvedValue(mockProcessorInstance),
     },
     AutoTokenizer: {
       from_pretrained: vi.fn().mockResolvedValue({

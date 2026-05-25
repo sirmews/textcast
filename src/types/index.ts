@@ -5,6 +5,7 @@ export interface Word {
   confidence: number;
   deleted?: boolean;
   playbackBuffer?: AudioBuffer; // Reference to the source buffer for this word
+  speaker?: string;
 }
 
 export interface Segment {
