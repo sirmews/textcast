@@ -6,12 +6,13 @@ import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import { audioBufferToWav } from "@/lib/audio";
 import { renderPiecesToBuffer } from "@/lib/audio/offlineRender";
 import { cn } from "@/lib/utils";
-import type { Word } from "@/types";
+import type { Segment, Word } from "@/types";
 
 interface TranscriptEditorProps {
   audioBuffer: AudioBuffer | null;
   initialText: string;
   words: Word[];
+  segments: Segment[];
   projectId: string;
   onTranscriptChange: (text: string, words: Word[]) => void;
 }
@@ -19,6 +20,7 @@ interface TranscriptEditorProps {
 export function TranscriptEditor({
   audioBuffer,
   words: initialWords,
+  segments,
   onTranscriptChange,
   projectId,
 }: TranscriptEditorProps) {
@@ -247,43 +249,142 @@ export function TranscriptEditor({
 
         {/* Interactive Transcript */}
         <div className="min-h-[400px] p-6 bg-background border border-border rounded-lg shadow-inner">
-          <div className="flex flex-wrap gap-x-1.5 gap-y-2 leading-relaxed">
-            {wordsWithOffsets.map((word, index) => {
-              const isActive =
-                isPlaying &&
-                !word.deleted &&
-                currentTime >= word.logicalStart &&
-                currentTime < word.logicalStart + word.wordDuration;
+          {segments && segments.length > 0 ? (
+            <div className="space-y-6">
+              {segments.map((segment, segIdx) => {
+                // Find all words from wordsWithOffsets that belong to this segment
+                const segmentWordsWithIndexes = wordsWithOffsets
+                  .map((word, index) => ({ word, index }))
+                  .filter(
+                    ({ word }) =>
+                      word.start >= segment.start && word.start <= segment.end,
+                  );
 
-              return (
-                <span
-                  key={`${index}-${word.word}`}
-                  onClick={() =>
-                    !word.deleted && handleWordClick(word.logicalStart)
-                  }
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    toggleWordDeletion(index);
-                  }}
-                  className={cn(
-                    "px-1 py-0.5 rounded cursor-pointer transition-all duration-200 select-none text-lg",
-                    word.deleted
-                      ? "text-muted-foreground/30 line-through scale-95"
-                      : "text-foreground hover:bg-muted",
-                    isActive &&
-                      "bg-primary text-primary-foreground shadow-sm scale-110 z-10",
-                  )}
-                  title={
-                    word.deleted
-                      ? "Right-click to restore"
-                      : "Click to seek, Right-click to delete"
-                  }
-                >
-                  {word.word}
-                </span>
-              );
-            })}
-          </div>
+                if (segmentWordsWithIndexes.length === 0) return null;
+
+                return (
+                  <div
+                    key={segment.id || segIdx}
+                    className="p-5 bg-card/40 border border-border/50 rounded-xl space-y-3 hover:border-border/80 transition-colors duration-200"
+                  >
+                    {/* Header for the segment */}
+                    <div className="flex items-center justify-between text-xs text-muted-foreground font-mono pb-2 border-b border-border/40">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-primary/60" />
+                        <span className="font-semibold text-foreground/80">
+                          {segment.speaker || `Speaker ${segIdx + 1}`}
+                        </span>
+                      </div>
+                      <span>
+                        {formatTime(segment.start)} - {formatTime(segment.end)}
+                      </span>
+                    </div>
+
+                    {/* Words wrapper */}
+                    <div className="flex flex-wrap gap-x-1.5 gap-y-2.5 leading-relaxed">
+                      {segmentWordsWithIndexes.map(({ word, index }) => {
+                        const isActive =
+                          isPlaying &&
+                          !word.deleted &&
+                          currentTime >= word.logicalStart &&
+                          currentTime < word.logicalStart + word.wordDuration;
+
+                        return (
+                          <button
+                            key={word.start}
+                            type="button"
+                            onClick={() =>
+                              !word.deleted && handleWordClick(word.logicalStart)
+                            }
+                            onContextMenu={(e) => {
+                              e.preventDefault();
+                              toggleWordDeletion(index);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                if (!word.deleted) {
+                                  handleWordClick(word.logicalStart);
+                                }
+                              } else if (e.key === "Backspace" || e.key === "Delete") {
+                                e.preventDefault();
+                                toggleWordDeletion(index);
+                              }
+                            }}
+                            className={cn(
+                              "px-1 py-0.5 rounded cursor-pointer transition-all duration-150 select-none text-lg border-0 bg-transparent text-left font-normal focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                              word.deleted
+                                ? "text-muted-foreground/30 line-through scale-95"
+                                : "text-foreground hover:bg-muted/80",
+                              isActive &&
+                                "bg-primary text-primary-foreground shadow-md scale-110 z-10 font-medium",
+                            )}
+                            title={
+                              word.deleted
+                                ? "Right-click to restore"
+                                : "Click/Press Enter/Space to seek, Right-click/Backspace/Delete to delete"
+                            }
+                          >
+                            {word.word}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-x-1.5 gap-y-2 leading-relaxed">
+              {wordsWithOffsets.map((word, index) => {
+                const isActive =
+                  isPlaying &&
+                  !word.deleted &&
+                  currentTime >= word.logicalStart &&
+                  currentTime < word.logicalStart + word.wordDuration;
+
+                return (
+                  <button
+                    key={word.start}
+                    type="button"
+                    onClick={() =>
+                      !word.deleted && handleWordClick(word.logicalStart)
+                    }
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      toggleWordDeletion(index);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        if (!word.deleted) {
+                          handleWordClick(word.logicalStart);
+                        }
+                      } else if (e.key === "Backspace" || e.key === "Delete") {
+                        e.preventDefault();
+                        toggleWordDeletion(index);
+                      }
+                    }}
+                    className={cn(
+                      "px-1 py-0.5 rounded cursor-pointer transition-all duration-200 select-none text-lg border-0 bg-transparent text-left font-normal focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                      word.deleted
+                        ? "text-muted-foreground/30 line-through scale-95"
+                        : "text-foreground hover:bg-muted",
+                      isActive &&
+                        "bg-primary text-primary-foreground shadow-sm scale-110 z-10",
+                    )}
+                    title={
+                      word.deleted
+                        ? "Right-click to restore"
+                        : "Click/Press Enter/Space to seek, Right-click/Backspace/Delete to delete"
+                    }
+                  >
+                    {word.word}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="mt-6 flex items-center justify-between text-sm text-muted-foreground bg-muted/30 p-4 rounded-lg">
