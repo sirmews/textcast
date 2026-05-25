@@ -16,7 +16,11 @@ interface TranscriberOutput {
 
 type Transcriber = (
   audio: Float32Array,
-  options: { return_timestamps: boolean },
+  options: {
+    return_timestamps: boolean;
+    chunk_length_s?: number;
+    stride_length_s?: number;
+  },
 ) => Promise<TranscriberOutput | TranscriberOutput[]>;
 
 type AlignerModel = (
@@ -194,26 +198,58 @@ export async function transcribeAudio(
     ];
   }
 
+  // Split long segments into smaller sub-segments of maximum 30 seconds
+  const MAX_SEGMENT_DURATION = 30; // seconds
+  const processedSegments: typeof speechSegments = [];
+  const sampleRate = 16000;
+
+  for (const segment of speechSegments) {
+    const segmentDuration = segment.end - segment.start;
+    if (segmentDuration <= MAX_SEGMENT_DURATION) {
+      processedSegments.push(segment);
+    } else {
+      console.log(
+        `[TextCast] Splitting long segment (${segmentDuration.toFixed(2)}s) into sub-segments of max ${MAX_SEGMENT_DURATION}s`,
+      );
+      let offset = 0;
+      while (offset < segmentDuration) {
+        const chunkDuration = Math.min(MAX_SEGMENT_DURATION, segmentDuration - offset);
+        const startSample = Math.round(offset * sampleRate);
+        const endSample = Math.min(
+          segment.audio.length,
+          Math.round((offset + chunkDuration) * sampleRate),
+        );
+        const chunkAudio = segment.audio.subarray(startSample, endSample);
+        processedSegments.push({
+          start: segment.start + offset,
+          end: segment.start + offset + chunkDuration,
+          audio: chunkAudio,
+        });
+        offset += chunkDuration;
+      }
+    }
+  }
+
   const allWords: Word[] = [];
   let fullText = "";
 
   // STEP 2: Process each speech segment
-  for (let i = 0; i < speechSegments.length; i++) {
-    const segment = speechSegments[i];
+  for (let i = 0; i < processedSegments.length; i++) {
+    const segment = processedSegments[i];
     const segmentDuration = segment.end - segment.start;
     console.log(
-      `[TextCast] Processing segment ${i + 1}/${speechSegments.length} (${segment.start.toFixed(2)}s - ${segment.end.toFixed(2)}s)`,
+      `[TextCast] Processing segment ${i + 1}/${processedSegments.length} (${segment.start.toFixed(2)}s - ${segment.end.toFixed(2)}s)`,
     );
 
-    const baseProgress = 10 + Math.round((i / speechSegments.length) * 90);
+    const baseProgress = 10 + Math.round((i / processedSegments.length) * 90);
     const midProgress =
-      10 + Math.round(((i + 0.5) / speechSegments.length) * 90);
+      10 + Math.round(((i + 0.5) / processedSegments.length) * 90);
 
     if (onProgress) {
       onProgress({
         status: "progress",
         progress: baseProgress,
-        message: `Transcribing segment ${i + 1}/${speechSegments.length}...`,
+        message: `Transcribing segment ${i + 1}/${processedSegments.length}...`,
         // biome-ignore lint/suspicious/noExplicitAny: ProgressCallback type is incomplete in library
       } as any);
     }
@@ -222,6 +258,8 @@ export async function transcribeAudio(
     if (!transcriber) continue;
     const whisperResult = await transcriber(segment.audio, {
       return_timestamps: false,
+      chunk_length_s: 30,
+      stride_length_s: 5,
     });
     const output = Array.isArray(whisperResult)
       ? whisperResult[0]
@@ -235,7 +273,7 @@ export async function transcribeAudio(
       onProgress({
         status: "progress",
         progress: midProgress,
-        message: `Aligning segment ${i + 1}/${speechSegments.length}...`,
+        message: `Aligning segment ${i + 1}/${processedSegments.length}...`,
       } as any);
     }
 
@@ -285,7 +323,7 @@ export async function transcribeAudio(
     if (onProgress) {
       onProgress({
         status: "progress",
-        progress: Math.round(((i + 1) / speechSegments.length) * 100),
+        progress: Math.round(((i + 1) / processedSegments.length) * 100),
         // biome-ignore lint/suspicious/noExplicitAny: ProgressCallback type is incomplete in library
       } as any);
     }
