@@ -84,7 +84,6 @@ export function AudioWaveform({
 
   // Render exactly 250 bars. SVG will scale this responsively to any screen width.
   const NUMBER_OF_PEAKS = 250;
-  // SVG internal coordinates: width 1000, height 100.
   const SVG_WIDTH = 1000;
   const SVG_HEIGHT = 100;
   const BAR_SPACING = SVG_WIDTH / NUMBER_OF_PEAKS; // 4 units per bar
@@ -181,7 +180,7 @@ export function AudioWaveform({
   return (
     <div className={cn("space-y-2 select-none", className)}>
       <div className="flex items-center justify-between text-xs text-muted-foreground font-mono px-1">
-        <span>Timeline Overview</span>
+        <span>Timeline & EDL Editor</span>
         <span className="text-primary/80 font-medium">
           {hoverPercent !== null ? `Seek to: ${formatTime(hoverPercent * totalDuration)}` : `Playhead: ${formatTime(getAbsoluteTime(currentTime, pieces))}`}
         </span>
@@ -192,117 +191,145 @@ export function AudioWaveform({
         onClick={handleContainerClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className="relative w-full h-24 bg-background/40 border border-border/80 rounded-xl cursor-pointer overflow-hidden hover:border-border transition-colors duration-200"
+        className="relative w-full bg-background/40 border border-border/80 rounded-xl cursor-pointer overflow-hidden hover:border-border transition-colors duration-200 flex flex-col"
       >
-        {/* Wavesurfer Dual-Wave Rendering via SVG */}
-        <svg
-          className="w-full h-full p-2 overflow-visible"
-          viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
-          preserveAspectRatio="none"
-        >
-          {/* Progress Clipping Mask (Clipped to playhead location) */}
-          <defs>
-            <clipPath id="waveform-progress-clip">
-              <rect
-                x="0"
-                y="-10"
-                width={absolutePlayheadPercent * (SVG_WIDTH / 100)}
-                height={SVG_HEIGHT + 20}
-              />
-            </clipPath>
-          </defs>
+        {/* Upper Layer: Wavesurfer Dual-Wave Rendering via SVG */}
+        <div className="relative w-full h-20 px-3 flex items-center">
+          <svg
+            className="w-full h-full p-2 overflow-visible"
+            viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
+            preserveAspectRatio="none"
+          >
+            {/* Progress Clipping Mask (Clipped to playhead location) */}
+            <defs>
+              <clipPath id="waveform-progress-clip">
+                <rect
+                  x="0"
+                  y="-10"
+                  width={absolutePlayheadPercent * (SVG_WIDTH / 100)}
+                  height={SVG_HEIGHT + 20}
+                />
+              </clipPath>
+            </defs>
 
-          {/* Group 1: Background Waveform (Unplayed Portion - Muted Violet/Gray) */}
-          <g className="text-primary/20 dark:text-primary/15 transition-all duration-75">
-            {peakStates.map((state, index) => {
-              if (state.isDeleted) {
+            {/* Group 1: Background Waveform (Unplayed Portion - Muted Violet/Gray) */}
+            <g className="text-primary/20 dark:text-primary/15 transition-all duration-75">
+              {peakStates.map((state, index) => {
+                if (state.isDeleted) {
+                  return (
+                    <rect
+                      key={`bg-del-${index}`}
+                      x={state.x}
+                      y={state.y}
+                      width={state.width}
+                      height={state.height}
+                      rx="1.3"
+                      ry="1.3"
+                      className="fill-muted-foreground/10 dark:fill-muted-foreground/5"
+                    />
+                  );
+                }
                 return (
                   <rect
-                    key={`bg-del-${index}`}
+                    key={`bg-active-${index}`}
                     x={state.x}
                     y={state.y}
                     width={state.width}
                     height={state.height}
                     rx="1.3"
                     ry="1.3"
-                    className="fill-muted-foreground/10 dark:fill-muted-foreground/5"
+                    fill="currentColor"
                   />
                 );
-              }
-              return (
-                <rect
-                  key={`bg-active-${index}`}
-                  x={state.x}
-                  y={state.y}
-                  width={state.width}
-                  height={state.height}
-                  rx="1.3"
-                  ry="1.3"
-                  fill="currentColor"
-                />
-              );
-            })}
-          </g>
+              })}
+            </g>
 
-          {/* Group 2: Foreground Waveform (Played Portion - Clipped to Playhead with vibrant Primary fill) */}
-          <g
-            className="text-primary transition-all duration-75"
-            clipPath="url(#waveform-progress-clip)"
-          >
-            {peakStates.map((state, index) => {
-              // Deleted parts don't light up as played to keep focus on edited state
-              if (state.isDeleted) return null;
+            {/* Group 2: Foreground Waveform (Played Portion - Clipped to Playhead with vibrant Primary fill) */}
+            <g
+              className="text-primary transition-all duration-75"
+              clipPath="url(#waveform-progress-clip)"
+            >
+              {peakStates.map((state, index) => {
+                // Deleted parts don't light up as played to keep focus on edited state
+                if (state.isDeleted) return null;
 
-              return (
-                <rect
-                  key={`fg-active-${index}`}
-                  x={state.x}
-                  y={state.y}
-                  width={state.width}
-                  height={state.height}
-                  rx="1.3"
-                  ry="1.3"
-                  fill="currentColor"
-                />
-              );
-            })}
-          </g>
+                return (
+                  <rect
+                    key={`fg-active-${index}`}
+                    x={state.x}
+                    y={state.y}
+                    width={state.width}
+                    height={state.height}
+                    rx="1.3"
+                    ry="1.3"
+                    fill="currentColor"
+                  />
+                );
+              })}
+            </g>
 
-          {/* Group 3: Strike-through decorations for Deleted Blocks */}
-          <g className="text-muted-foreground/30 dark:text-muted-foreground/20">
-            {peakStates.map((state, index) => {
-              if (!state.isDeleted) return null;
-              
-              // Draw a small cross line in the middle of deleted buckets
-              return (
-                <line
-                  key={`strike-${index}`}
-                  x1={state.x - 1}
-                  y1={SVG_HEIGHT / 2}
-                  x2={state.x + state.width + 1}
-                  y2={SVG_HEIGHT / 2}
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeDasharray="1 1"
-                />
-              );
-            })}
-          </g>
-        </svg>
+            {/* Group 3: Strike-through decorations for Deleted Blocks */}
+            <g className="text-muted-foreground/30 dark:text-muted-foreground/20">
+              {peakStates.map((state, index) => {
+                if (!state.isDeleted) return null;
+                
+                // Draw a small cross line in the middle of deleted buckets
+                return (
+                  <line
+                    key={`strike-${index}`}
+                    x1={state.x - 1}
+                    y1={SVG_HEIGHT / 2}
+                    x2={state.x + state.width + 1}
+                    y2={SVG_HEIGHT / 2}
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeDasharray="1 1"
+                  />
+                );
+              })}
+            </g>
+          </svg>
 
-        {/* Wavesurfer Hover Timeline Indicator Line */}
-        {hoverPercent !== null && (
+          {/* Wavesurfer Hover Timeline Indicator Line */}
+          {hoverPercent !== null && (
+            <div
+              className="absolute top-0 bottom-0 w-[1.5px] bg-muted-foreground/40 pointer-events-none z-30"
+              style={{ left: `${hoverPercent * 100}%` }}
+            />
+          )}
+
+          {/* Wavesurfer Sliding Playhead Indicator Line */}
           <div
-            className="absolute top-0 bottom-0 w-[1.5px] bg-muted-foreground/40 pointer-events-none z-30"
-            style={{ left: `${hoverPercent * 100}%` }}
+            className="absolute top-0 bottom-0 w-0.5 bg-primary z-40 pointer-events-none transition-all duration-75 ease-linear shadow-[0_0_10px_rgba(var(--primary-color),0.6)]"
+            style={{ left: `${absolutePlayheadPercent}%` }}
           />
-        )}
+        </div>
 
-        {/* Wavesurfer Sliding Playhead Indicator Line */}
-        <div
-          className="absolute top-0 bottom-0 w-0.5 bg-primary z-40 pointer-events-none transition-all duration-75 ease-linear shadow-[0_0_10px_rgba(var(--primary-color),0.6)]"
-          style={{ left: `${absolutePlayheadPercent}%` }}
-        />
+        {/* Lower Layer: Integrated Piece Table (EDL) Timeline Track */}
+        <div className="h-4 w-full bg-destructive/15 border-t border-border/40 relative flex items-center text-left">
+          {pieces.map((piece, i) => {
+            const leftPercent = (piece.sourceOffset / totalDuration) * 100;
+            const widthPercent = (piece.length / totalDuration) * 100;
+
+            return (
+              <div
+                key={i}
+                className="absolute h-full bg-emerald-500/80 dark:bg-emerald-500/70 border-r border-background/40 last:border-none hover:brightness-110 transition-all flex items-center justify-center overflow-hidden"
+                style={{
+                  left: `${leftPercent}%`,
+                  width: `${widthPercent}%`,
+                }}
+                title={`Piece ${i + 1}\nSource Offset: ${piece.sourceOffset.toFixed(2)}s\nLength: ${piece.length.toFixed(2)}s`}
+              >
+                {widthPercent > 2.5 && (
+                  <span className="text-[9px] font-mono font-bold text-emerald-950 dark:text-emerald-950 px-1 truncate">
+                    P{i + 1}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

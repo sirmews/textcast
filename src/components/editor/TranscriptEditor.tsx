@@ -396,62 +396,8 @@ export function TranscriptEditor({
           </div>
           <p>
             {wordList.filter((w) => w.deleted).length} words removed from
-            timeline
+            timeline • {pieces.length} active pieces
           </p>
-        </div>
-
-        {/* Piece Table Visualization (EDL) */}
-        <div className="mt-8 p-4 bg-muted/20 border border-border rounded-lg">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium">
-              Under the Hood: Piece Table (EDL)
-            </h3>
-            <span className="text-xs text-muted-foreground font-mono">
-              Original Buffer: {formatTime(audioBuffer?.duration || 0)}
-            </span>
-          </div>
-
-          <div className="relative w-full h-10 bg-destructive/20 rounded overflow-hidden shadow-inner">
-            {/* The background represents the full original file (red = deleted/omitted) */}
-            {pieces.map((piece, i) => {
-              const totalOriginalLength = audioBuffer?.duration || 1;
-              const leftPercent =
-                (piece.sourceOffset / totalOriginalLength) * 100;
-              const widthPercent = (piece.length / totalOriginalLength) * 100;
-
-              return (
-                <div
-                  key={i}
-                  className="absolute top-0 h-full bg-emerald-500 border-r border-background/50 last:border-none flex items-center justify-center overflow-hidden hover:brightness-110 transition-all cursor-crosshair"
-                  style={{
-                    left: `${leftPercent}%`,
-                    width: `${widthPercent}%`,
-                  }}
-                  title={`Piece ${i + 1}\nSource Offset: ${piece.sourceOffset.toFixed(2)}s\nLength: ${piece.length.toFixed(2)}s`}
-                >
-                  {widthPercent > 5 && (
-                    <span className="text-[10px] font-mono font-medium text-emerald-950 px-1 truncate">
-                      P{i + 1}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-3 flex gap-4 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 bg-emerald-500 rounded-sm shadow-sm"></span>
-              <span>Active Audio Blocks</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 bg-destructive/20 rounded-sm shadow-inner"></span>
-              <span>Deleted Regions (Skipped)</span>
-            </div>
-            <div className="ml-auto">
-              <span className="font-mono">Total Pieces: {pieces.length}</span>
-            </div>
-          </div>
         </div>
       </div>
     </div>
