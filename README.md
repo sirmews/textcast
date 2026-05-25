@@ -9,18 +9,21 @@ Edit audio by editing text. A local-first, browser-based audio editor for podcas
 - 🎙️ **Record** - Capture studio-quality PCM audio directly to disk via AudioWorklet + OPFS streaming
 - 🧹 **Clean** - Reduce noise, normalize volume, trim silence with Web Audio API preprocessing
 - 📝 **Transcribe** - Local Whisper transcription (WebGPU-accelerated, falls back to WASM)
+- 👥 **Diarize & Segment** - On-device voice-profile diarization with PyAnnote to split transcripts into structured paragraph speech blocks and timestamp segments
 - ✏️ **Edit** - Non-destructive text-based editing using a Piece Table engine with 10ms crossfades
 - 💾 **Save** - Persistent recording to Origin Private File System (OPFS)
 - 📦 **Export** - "Bake" your edits into a final WAV file using OfflineAudioContext
+- ♿ **Keyboard Accessible** - Semantic keyboard interaction: Tab navigation, Enter/Space seeking, and Backspace/Delete editing shortcuts
 
 ## How It Works
 
-### Two-Stage Transcription Pipeline
+### Three-Stage Transcription & Diarization Pipeline
 
-TextCast uses a two-stage architecture for frame-accurate word timestamps:
+TextCast uses a three-stage pipeline for frame-accurate word timestamps and structured dialogue paragraph splits:
 
-1. **Whisper Transcription** - Uses `@huggingface/transformers` to generate accurate text
-2. **CTC Forced Alignment** - Uses the MMS forced aligner with Viterbi decoding to map words to exact audio frames
+1. **Whisper Transcription** - Uses `@huggingface/transformers` to generate highly accurate text.
+2. **CTC Forced Alignment** - Uses the MMS forced aligner with Viterbi decoding to map words to exact audio frames.
+3. **PyAnnote Speaker Diarization** - Uses the PyAnnote model to identify speaker turns and split words into beautifully structured speech-turn paragraphs with corresponding timestamps.
 
 This approach eliminates timestamp drift and hallucinations common in seq2seq models. For more on this problem, see [WhisperX](https://github.com/m-bain/whisperX).
 
@@ -88,11 +91,13 @@ src/
 | Storage | OPFS (audio) + IndexedDB (metadata) |
 | Transcription | [@huggingface/transformers](https://huggingface.co/docs/transformers.js) (WebGPU/WASM) |
 | Forced Alignment | [MMS-300M Forced Aligner](https://huggingface.co/onnx-community/mms-300m-1130-forced-aligner-ONNX) |
+| Diarization | [PyAnnote Segmentation 3.0](https://huggingface.co/onnx-community/pyannote-segmentation-3.0) (ONNX via WASM) |
 | VAD | [@ricky0123/vad-web](https://github.com/ricky0123/vad) (Silero v5) |
 
 ## References & Inspiration
 
-- [WhisperX](https://github.com/m-bain/whisperX) - Two-stage transcription + alignment architecture
+- [WhisperX](https://github.com/m-bain/whisperX) - Transcription + alignment + diarization pipeline
+- [PyAnnote Audio](https://github.com/pyannote/pyannote-audio) - State-of-the-art speaker diarization
 - [VS Code Piece Table](https://code.visualstudio.com/blogs/2018/03/23/text-buffer-reimplementation) - Non-destructive editing data structure
 - [Silero VAD](https://github.com/snakers4/silero-vad) - Voice Activity Detection
 - [Transformers.js](https://huggingface.co/docs/transformers.js) - Running ML models in the browser
