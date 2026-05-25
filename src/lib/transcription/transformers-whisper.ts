@@ -364,7 +364,7 @@ export async function transcribeAudio(
     const segmentWords = allWords.slice(segmentStartIdx);
     if (segmentWords.length > 0) {
       resultSegments.push({
-        id: `seg-${i}-${Date.now()}`,
+        id: crypto.randomUUID(),
         start: segment.start,
         end: segment.end,
         text: segmentWords.map((w) => w.word).join(" "),
@@ -457,7 +457,7 @@ export async function transcribeAudio(
 
           if (speakerChanged || isLongPause) {
             diarizedSegments.push({
-              id: `seg-${diarizedSegments.length}-${Date.now()}`,
+              id: crypto.randomUUID(),
               start: segmentStart,
               end: prevWord.end,
               text: currentSegmentWords.map((w) => w.word).join(" "),
@@ -473,7 +473,7 @@ export async function transcribeAudio(
 
         if (currentSegmentWords.length > 0) {
           diarizedSegments.push({
-            id: `seg-${diarizedSegments.length}-${Date.now()}`,
+            id: crypto.randomUUID(),
             start: segmentStart,
             end: currentSegmentWords[currentSegmentWords.length - 1].end,
             text: currentSegmentWords.map((w) => w.word).join(" "),
