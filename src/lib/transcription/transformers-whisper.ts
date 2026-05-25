@@ -247,11 +247,13 @@ export async function transcribeAudio(
 
   const allWords: Word[] = [];
   let fullText = "";
+  const resultSegments: { id: string; start: number; end: number; text: string }[] = [];
 
   // STEP 2: Process each speech segment
   for (let i = 0; i < processedSegments.length; i++) {
     const segment = processedSegments[i];
     const segmentDuration = segment.end - segment.start;
+    const segmentStartIdx = allWords.length;
     console.log(
       `[TextCast] Processing segment ${i + 1}/${processedSegments.length} (${segment.start.toFixed(2)}s - ${segment.end.toFixed(2)}s)`,
     );
@@ -335,6 +337,16 @@ export async function transcribeAudio(
       });
     }
 
+    const segmentWords = allWords.slice(segmentStartIdx);
+    if (segmentWords.length > 0) {
+      resultSegments.push({
+        id: `seg-${i}-${Date.now()}`,
+        start: segment.start,
+        end: segment.end,
+        text: segmentWords.map((w) => w.word).join(" "),
+      });
+    }
+
     if (onProgress) {
       onProgress({
         status: "progress",
@@ -346,7 +358,7 @@ export async function transcribeAudio(
 
   return {
     text: fullText.trim(),
-    segments: [],
+    segments: resultSegments,
     words: allWords,
   };
 }

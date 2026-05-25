@@ -529,6 +529,7 @@ export function Recorder({ project, onSave }: RecorderProps) {
           audioBuffer={audioBuffer}
           initialText={transcriptText}
           words={transcriptWords}
+          segments={project.transcript?.segments || []}
           projectId={project.id}
           onTranscriptChange={handleTranscriptChange}
         />
